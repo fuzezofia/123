@@ -1,10 +1,12 @@
 import random
+from DBUtils import update
+from DBUtils import select
+
 
 # 银行的数据库
 bank = {}
 # 银行名称
 bank_name = "中国工商银行昌平支行"
-
 
 def welcome():
     print("---------------------------------------")
@@ -18,31 +20,31 @@ def welcome():
     print("-  6.Bye!                             -")
     print("--------------------------------------")
 
-
 # 银行的开户逻辑
-def bank_addUser(account, username, password, country, province, street, door, money):
-    if len(bank) > 100:
+def bank_addUser(account,username,password,country,province,street,door,money):
+    # 判断是否已满
+    sql = "select count(*) from user"
+    param = []
+    data = select(sql,param,mode="one")# (4,)
+    if data[0] > 100:
         return 3
 
-    if username in bank:
+    sql1 = "select * from user where username  = %s"
+    param1 = [username]
+    data1 = select(sql1,param1,mode= "all")# () 
+
+    # 判断是否开过户
+    if len(data1) > 0:
         return 2
 
     # 正常开户
-    bank[username] = {
-        "account": account,
-        "password": password,
-        "country": country,
-        "province": province,
-        "street": street,
-        "door": door,
-        "money": money,
-        "bank_name": bank_name
-    }
+    sql2 = "insert into user values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    param2 = [account,username,password,country,province,street,door,money,"2021-11-22",bank_name]
+    update(sql2,param2)
     return 1
 
-
 # 开户的输入数据
-def addUser():
+def  addUser():
     username = input("请输入姓名：")
 
     password = input("请输入密码：")
@@ -52,19 +54,19 @@ def addUser():
     province = input("请输入省份：")
 
     street = input("请输入街道：")
-    door = input("请输入您家门牌号：")
+    door  = input("请输入您家门牌号：")
 
     money = int(input("请输入初始化您的银行卡余额："))
 
-    account = random.randint(10000000, 99999999)
+    account = random.randint(10000000,99999999)
 
-    status = bank_addUser(account, username, password, country, province, street, door, money)
+    status = bank_addUser(account,username,password,country,province,street,door,money)
 
     if status == 3:
         print("对不起，该银行用户已满，请携带证件到其他银行办理！")
     elif status == 2:
         print("您之前已经开过户！禁止重复开户！")
-    elif status == 1:
+    elif status  == 1:
         print("嘻嘻，开户成功！以下卡户的个人信息：")
         info = '''
             ------------个人信息查询结果-------------
@@ -80,42 +82,47 @@ def addUser():
             开户行名称：%s
             ---------------------------------------
         '''
-        print(info % (username, account, password, country, province, street, door, money, bank_name))
+        print(info % (username,account,password,country,province,street,door,money,bank_name))
         print(bank)
 
 
-# 存钱
+#存钱
 def bank_cun():
-    username = input('请输入账户用户名')
+    account = input('请输入账号')
     addmoney = int(input('请输入存款金额'))
-    addcun = cun_money(username, addmoney)
-    if addcun == 1:
+    addcun = cun_money(account,addmoney)
+    if addcun  == 1:
         print("嘻嘻，存款成功")
         info = '''
             ------------个人信息查询结果-------------
-            用户名：%s
-            余额：%s
+            账号：%s
             存入金额：%s
             ---------------------------------------
         '''
-        print(info % (username, bank[username]["money"], addmoney))
-        print(bank)
+        print(info % (account,addmoney))
 
 
-def cun_money(username, addmoney):
-    if username in bank:
-        bank[username]["money"] = bank[username]["money"] + addmoney
+
+def cun_money(account,addmoney):
+    sql4 = 'select * from user where account = %s'
+    param4 = [account]
+    abc = select(sql4, param4,mode='all')
+    if len(abc) > 0:
+        sql3 = 'update user set money = money  + %s'
+        param3 = [addmoney]
+        update(sql3,param3)
         return 1
     else:
+        print('失败')
         return 2
 
 
 # 取钱
 def bank_qumoney():
-    username = input("请输入用户名:")
+    account = input("请输入账号:")
     password = input('请输入密码：')
-    addmoney = int(input("请输入取款金额:"))
-    add = add_money(username, addmoney, password)
+    money = int(input("请输入取款金额:"))
+    add = add_money(account,money,password)
     if add == 3:
         print("对不起，钱不够")
     elif add == 2:
@@ -129,109 +136,51 @@ def bank_qumoney():
             --------------账户信息--------------
             用户名：%s
             取出金额: %s 元
-            账户余额: %s 元
             ----------------------------------
             '''
-        print(info % (username, addmoney, bank[username]['money']))
+        print(info % (username, money))
 
-
-def add_money(username, addmoney, password):
-    if username in bank:
-        bank[username]['password'] = password
-        bank[username]['money'] = bank[username]['money'] - addmoney
-        if bank[username]['money'] >= 0:
-            return 1
-        else:
-            return 3
-
-
-# 转账判断
-def transfer_process(username1, account1, password, username2, account2, money):
-    if username1 in bank and username2 not in bank:
-        return 0
+def add_money(account,money,password):
+    sql5 = 'select * from user where account  = %s'
+    param5 = [account]
+    a = select(sql5, param5,mode='all')
+    sql1='select password from user where account = %s and password = %s'
+    param1 = [account,password]
+    b=select(sql1, param1)
+    sql2="select money from user where account=%s and money >=%s"
+    param2=[account,money]
+    c=select(sql2, param2)
+    if len(a)==0:
+        return 1
     else:
-        if account1 and account2 not in bank:
-            return 1
+        if len(b) == 0 :
+            return 2
         else:
-            if password != bank[username1]['password']:
-                return 2
+            if len(c)==0:
+                return 3
             else:
-                if float(money) > bank[username1]['money']:
-                    return 3
-                else:
-                    bank[username1] = {
-                        "account": bank[username1]["account"],
-                        "password": bank[username1]["password"],
-                        "country": bank[username1]["country"],
-                        "province": bank[username1]["province"],
-                        "street": bank[username1]["street"],
-                        "door": bank[username1]["door"],
-                        "money": bank[username1]['money'] - float(money),
-                        "bank_name": bank_name
-                    }
-                    bank[username2] = {
-                        "account": bank[username2]["account"],
-                        "password": bank[username2]["password"],
-                        "country": bank[username2]["country"],
-                        "province": bank[username2]["province"],
-                        "street": bank[username2]["street"],
-                        "door": bank[username2]["door"],
-                        "money": bank[username2]['money'] + float(money),
-                        "bank_name": bank_name
-                    }
+                sql3 = 'update user set money = money  - %s where account = %s'
+                param3 = [money,account]      
+                update(sql3,param3)
 
 
-# 转账
-def transfer():
-    username1 = input("请输入转出账户用户名:")
-    account1 = input("请输入转出账户账号:")
-    password = input("请输入转出账户密码：")
-    username2 = input("请输入转入账户用户名:")
-    account2 = input("请输入转入账户账号:")
-    money = input("请输入转账金额:")
-    transfer = transfer_process(username1, account1, password, username2, account2, money)
-    if transfer == 0:
-        print("请输入正确的用户名")
-    elif transfer == 1:
-        print("账号输入错误")
-    elif transfer == 2:
-        print("密码输入错误")
-    elif transfer == 3:
-        print("余额不足")
-    else:
-        print("转账成功，下面是您的转账信息:")
-        info = '''
-        --------------转账信息--------------
-        转出账户用户名: %s
-        转出账户账号: %s
-        转入账户用户名: %s
-        转入账户账号: %s
-        转 账 金 额: %s 元
-        账 户 余 额: %s 元
-        ----------------------------------
-        '''
-        print(info % (username1, account1, username2, account2, money, bank[username1]['money']))
-
-
-# 查询
-def bank_cha(account, password, username):
-    if account in bank and password in bank:
-        bank[username]['account'] = account
-        bank[username]['password'] = password
+#查询
+def bank_cha(account,password):
+    sql1='select * from user where account = %s and password = %s'
+    param1 = [account,password]
+    b=select(sql1, param1)
+    if  len(b) > 0 :
         return 1
 
-
 def bank_chaxin():
-    username = input('请输入用户名：')
     account = input('请输入账号：')
     password = input('请输入密码：')
-    addcha = bank_cha(
-        account,
-        password,
-        username,
-    )
+    addcha = bank_cha(account,password)
     if addcha == 1:
         print("嘻嘻，查询成功")
+        sql='select * from user where account=%s'
+        param=[account]
+        a=select(sql, param)
         info = '''
             ------------个人信息查询结果-------------
             用户名：%s
@@ -246,18 +195,69 @@ def bank_chaxin():
             开户行名称：%s
             ---------------------------------------
         '''
-        print(info % (account,
-                      password,
-                      username,
-                      bank[username]['country'],
-                      bank[username]['province'],
-                      bank[username]['street'],
-                      bank[username]['door'],
-                      bank[username]['money'],
-                      bank[username]['bank_name']
-                      ))
-        print(bank)
+        print(info % (a[0][1],
+        a[0][0],
+        a[0][2],
+        a[0][3],
+        a[0][4],
+        a[0][5],
+        a[0][6],
+        a[0][7],
+        a[0][9]
+        ))
 
+#转账
+def transfer_process(account1,password,account2,money):
+    sql5 = 'select * from user where account  = %s'
+    param5 = [account1]
+    a = select(sql5, param5,mode='all')
+
+    sql6 = 'select * from user where account  = %s'
+    param6 = [account2]
+    b = select(sql6, param6,mode='all')
+    if len(a)==0 or len(b)==0:
+        return 1
+    else:
+        sql1='select password from user where account = %s and password = %s'
+        param1=[account2,password]
+        d=select(sql1, param1,mode='all')
+        if len(d)==0:
+            return 2
+        else:
+            sql='select money from user where account = %s and money > %s'
+            param=[account1,money]
+            c=select(sql, param,mode='all')
+            if len(c)==0:
+                return 3
+            else:
+                sql2='update user set money = money  + %s where account=%s'
+                param2=[money,account2]
+                update(sql2, param2)
+                sql3='update user set money = money  - %s where account=%s'
+                param3=[money,account1]
+                update(sql3, param3)
+def transfer():
+    account1 = input("请输入转出账户账号:")
+    password = input("请输入转出账户密码：")
+    account2 = input("请输入转入账户账号:")
+    money = input("请输入转账金额:")
+    transfer = transfer_process(account1, password, account2, money)
+    if transfer == 1:
+        print("账号输入错误")
+    elif transfer == 2:
+        print("密码输入错误")
+    elif transfer == 3:
+        print("余额不足")
+    else:
+        print("转账成功，下面是您的转账信息:")
+        info = '''
+        --------------转账信息--------------
+        转出账户账号: %s
+        转入账户账号: %s
+        转 账 金 额: %s 元
+        ----------------------------------
+        '''
+        print(info % ( account1, account2, money))
 
 while True:
     welcome()
@@ -273,5 +273,71 @@ while True:
     elif chose == "5":
         bank_chaxin()
     elif chose == "6":
-        print("正在退出系统，欢迎下次使用。")
-        break
+        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
